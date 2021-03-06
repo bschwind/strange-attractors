@@ -1,0 +1,11 @@
+[package]
+name = "strange-attractors"
+version = "0.1.0"
+authors = ["Brian Schwind <brianmschwind@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.2"
+wgpu = "0.7"
+winit = "0.24"
