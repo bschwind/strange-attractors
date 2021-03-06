@@ -4,7 +4,7 @@ use glam::{vec3, Mat4};
 use std::mem;
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
-const NUM_PARTICLES: usize = 100000;
+const NUM_PARTICLES: usize = 1000000;
 const PARTICLES_PER_GROUP: u32 = 512;
 
 pub struct ParticleSystem {
@@ -124,7 +124,7 @@ impl ParticleSystem {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        binding: 0,
                         visibility: wgpu::ShaderStage::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -136,7 +136,7 @@ impl ParticleSystem {
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
-                        binding: 2,
+                        binding: 1,
                         visibility: wgpu::ShaderStage::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
@@ -203,11 +203,11 @@ impl ParticleSystem {
                 layout: compute_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
-                        binding: 1,
+                        binding: 0,
                         resource: particle_buffers[i].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
-                        binding: 2,
+                        binding: 1,
                         resource: particle_buffers[(i + 1) % 2].as_entire_binding(), // bind to opposite buffer
                     },
                 ],

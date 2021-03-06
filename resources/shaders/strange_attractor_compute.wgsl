@@ -1,9 +1,9 @@
 // This should match `NUM_PARTICLES` on the Rust side.
-const NUM_PARTICLES: u32 = 3000000;
+const NUM_PARTICLES: u32 = 1000000;
 
 const B: f32 = 0.19;
 
-const DT: f32 = 0.008;
+const DT: f32 = 0.033333333;
 
 [[block]]
 struct Particle {
@@ -15,8 +15,8 @@ struct Particles {
     particles: [[stride(16)]] array<Particle>;
 };
 
-[[group(0), binding(1)]] var<storage> particles_src : [[access(read)]] Particles;
-[[group(0), binding(2)]] var<storage> particles_dst : [[access(read_write)]] Particles;
+[[group(0), binding(0)]] var<storage> particles_src : [[access(read)]] Particles;
+[[group(0), binding(1)]] var<storage> particles_dst : [[access(read_write)]] Particles;
 
 [[builtin(global_invocation_id)]] var gl_GlobalInvocationID : vec3<u32>;
 
