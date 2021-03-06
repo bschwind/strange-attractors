@@ -21,7 +21,7 @@ pub struct ParticleSystem {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct Particle {
-    /// XY position of the bottom left of the particle (zw unused)
+    /// XYZ position of the particle (w unused)
     pos: [f32; 4],
 }
 
