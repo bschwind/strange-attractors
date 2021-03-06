@@ -258,7 +258,7 @@ impl TexturedQuad {
             rpass.set_bind_group(0, &self.bind_group, &[]);
             rpass.set_index_buffer(self.index_buf.slice(..), wgpu::IndexFormat::Uint16);
             rpass.set_vertex_buffer(0, self.vertex_buf.slice(..));
-            // rpass.draw_indexed(0..4 as u32, 0, 0..1);
+            rpass.draw_indexed(0..4 as u32, 0, 0..1);
         }
         encoder.pop_debug_group();
     }
