@@ -63,6 +63,22 @@ impl GraphicsDevice {
         Self { adapter, device, queue, surface, swap_chain_descriptor, swap_chain }
     }
 
+    pub fn load_shader(&self, shader_src: &'static str) -> wgpu::ShaderModule {
+        let mut flags = wgpu::ShaderFlags::VALIDATION;
+        match self.adapter().get_info().backend {
+            wgpu::Backend::Vulkan | wgpu::Backend::Metal => {
+                flags |= wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION;
+            },
+            _ => {},
+        }
+
+        self.device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_src)),
+            flags,
+        })
+    }
+
     pub fn begin_frame(&mut self) -> FrameEncoder {
         let frame = self
             .swap_chain
@@ -80,6 +96,10 @@ impl GraphicsDevice {
         self.swap_chain_descriptor.width = new_size.width;
         self.swap_chain_descriptor.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+    }
+
+    pub fn adapter(&self) -> &Adapter {
+        &self.adapter
     }
 
     pub fn device(&self) -> &Device {
@@ -164,21 +184,8 @@ impl TexturedQuad {
             label: None,
         });
 
-        let mut flags = wgpu::ShaderFlags::VALIDATION;
-        match graphics_device.adapter.get_info().backend {
-            wgpu::Backend::Vulkan | wgpu::Backend::Metal => {
-                flags |= wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION;
-            },
-            _ => {}, // TODO
-        }
-
-        let draw_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "../../resources/shaders/draw.wgsl"
-            ))),
-            flags,
-        });
+        let draw_shader =
+            graphics_device.load_shader(include_str!("../../resources/shaders/draw.wgsl"));
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,

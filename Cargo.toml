@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 bytemuck = { version = "1", features = ["derive"] }
+glam = "0.13"
 pollster = "0.2"
 wgpu = "0.7"
 winit = "0.24"
+rand = "0.8"
