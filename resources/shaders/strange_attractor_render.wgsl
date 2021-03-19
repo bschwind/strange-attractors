@@ -36,12 +36,42 @@ var<out> out_color: vec4<f32>;
 [[location(1)]]
 var<in> pos: vec4<f32>;
 
+fn hue2rgb(f1: f32, f2: f32, hue: f32) -> f32 {
+    if ((6.0 * hue) < 1.0) {
+        return f1 + (f2 - f1) * 6.0 * hue;
+    }
+    if ((2.0 * hue) < 1.0) {
+        return f2;
+    }
+    if ((3.0 * hue) < 2.0) {
+        return f1 + (f2 - f1) * ((2.0 / 3.0) - hue) * 6.0;
+    }
+    return f1;
+}
+
+fn hsl2rgb(hsl: vec3<f32>) -> vec3<f32> {
+    var rgb: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    if (hsl.y == 0.0) {
+        rgb = vec3<f32>(hsl.z);
+    } else {
+        var f2: f32 = 0.0;
+        if (hsl.z < 0.5) {
+            f2 = hsl.z * (1.0 + hsl.y);
+        } else {
+            f2 = hsl.z + hsl.y - hsl.y * hsl.z;
+        }
+        var f1: f32 = 2.0 * hsl.z - f2;
+        rgb.r = hue2rgb(f1, f2, hsl.x + (1.0/3.0));
+        rgb.g = hue2rgb(f1, f2, hsl.x);
+        rgb.b = hue2rgb(f1, f2, hsl.x - (1.0/3.0));
+    }   
+    return rgb;
+}
+
 [[stage(fragment)]]
 fn main() {
-    var val: f32 = pos.w;
-    var r: f32 = val;
-    var g: f32 = val;
-    var b: f32 = val;
+    var hsl: vec3<f32> = vec3<f32>(1.0 - clamp(pos.w, 0.0, 1.0), 1.0, 0.4 + pos.w / 10.0);
 
-    out_color = vec4<f32>(r, g, b, 1.0);
+    out_color = vec4<f32>(hsl2rgb(hsl), 1.0);
+    // out_color = vec4<f32>(hsl, 1.0);
 }
