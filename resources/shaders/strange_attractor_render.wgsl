@@ -27,7 +27,7 @@ fn main() {
     out_position = vec4<f32>(in_position + in_particle_pos.xyz, 1.0);
     out_position = globals.proj * out_position;
 
-    pos = out_position;
+    pos = vec4<f32>(out_position.xyz, in_particle_pos.w);
 }
 
 [[location(0)]]
@@ -38,9 +38,10 @@ var<in> pos: vec4<f32>;
 
 [[stage(fragment)]]
 fn main() {
-    var r: f32 = 1.0;
-    var g: f32 = 1.0;
-    var b: f32 = 1.0;
+    var val: f32 = pos.w;
+    var r: f32 = val;
+    var g: f32 = val;
+    var b: f32 = val;
 
     out_color = vec4<f32>(r, g, b, 1.0);
 }
