@@ -2,6 +2,7 @@ use crate::{
     graphics::{GraphicsDevice, TexturedQuad},
     particle_system::ParticleSystem,
 };
+use midi::Midi;
 use std::time::{Duration, Instant};
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -10,6 +11,7 @@ use winit::{
 };
 
 mod graphics;
+mod midi;
 mod particle_system;
 
 const TARGET_FPS: usize = 60;
@@ -19,9 +21,10 @@ async fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_title("Strange Attractors").build(&event_loop).unwrap();
 
+    let midi = Midi::new().unwrap();
     let mut graphics_device = GraphicsDevice::new(&window).await;
     let textured_quad = TexturedQuad::new(&graphics_device);
-    let mut particle_system = ParticleSystem::new(&graphics_device);
+    let mut particle_system = ParticleSystem::new(&graphics_device, midi.state.clone());
 
     let mut last_frame_time = Instant::now();
 

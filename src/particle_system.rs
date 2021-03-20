@@ -1,11 +1,16 @@
-use crate::{graphics::FrameEncoder, GraphicsDevice};
+use crate::{graphics::FrameEncoder, midi, GraphicsDevice};
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
 use std::{mem, slice};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
-const NUM_PARTICLES: usize = 1000000;
+const NUM_PARTICLES: usize = 25_000_000;
 const PARTICLES_PER_GROUP: u32 = 512;
+
+fn struct_as_bytes<T>(obj: &T) -> &[u8] {
+    let p: *const T = obj; // the same operator is used as with references
+    unsafe { slice::from_raw_parts(p as *const u8, mem::size_of::<T>()) }
+}
 
 pub struct ParticleSystem {
     compute_pipeline: ComputePipeline,
@@ -19,6 +24,7 @@ pub struct ParticleSystem {
     uniform_buffer: wgpu::Buffer,
     frame_counter: usize,
     work_group_count: u32,
+    midi_state: midi::State,
 }
 
 #[repr(C)]
@@ -47,7 +53,7 @@ struct TriangleVertex {
 }
 
 impl ParticleSystem {
-    pub fn new(graphics_device: &GraphicsDevice) -> Self {
+    pub fn new(graphics_device: &GraphicsDevice, midi_state: midi::State) -> Self {
         let compute_pipeline = Self::build_compute_pipeline(graphics_device);
         let (particle_buffers, particle_bind_groups, consts, uniform_buffer, uniform_bind_group) =
             Self::build_particle_buffers(
@@ -78,10 +84,18 @@ impl ParticleSystem {
             consts,
             uniform_buffer,
             uniform_bind_group,
+            midi_state,
         }
     }
 
+    fn update_consts(&mut self, frame_encoder: &mut FrameEncoder) {
+        let state = self.midi_state.read().unwrap().clone();
+        self.consts = Consts { a: state[0], b: state[1], c: state[2], d: state[3], ..self.consts };
+        frame_encoder.queue().write_buffer(&self.uniform_buffer, 0, struct_as_bytes(&self.consts))
+    }
+
     pub fn render(&mut self, frame_encoder: &mut FrameEncoder) {
+        self.update_consts(frame_encoder);
         self.run_compute(frame_encoder);
         self.run_render(frame_encoder);
         self.frame_counter += 1;
@@ -221,11 +235,9 @@ impl ParticleSystem {
         let mut bind_groups = vec![];
 
         let consts = Consts { algo: 0, a: 0.0, b: 0.19, c: 0.0, d: 0.0, _align: [0f32; 3] };
-        let p: *const Consts = &consts; // the same operator is used as with references
-        let s: &[u8] = unsafe { slice::from_raw_parts(p as *const u8, mem::size_of::<Consts>()) };
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system compute shader uniform buffer"),
-            contents: s,
+            contents: struct_as_bytes(&consts),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
