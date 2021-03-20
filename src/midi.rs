@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
-pub type State = Arc<RwLock<[f32; 8]>>;
+pub type State = Arc<RwLock<(u32, [f32; 8])>>;
 
 pub struct Midi {
     pub state: State,
@@ -11,7 +11,7 @@ pub struct Midi {
 
 impl Midi {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let state = Arc::new(RwLock::new([0f32; 8]));
+        let state = Arc::new(RwLock::new((0, [0.0; 8])));
         let mut midi_in = MidiInput::new("midir reading input")?;
         midi_in.ignore(Ignore::None);
         let in_ports = midi_in.ports();
@@ -29,11 +29,14 @@ impl Midi {
             {
                 let state = state.clone();
                 move |stamp, message, _| {
-                    if message[0] == 176 && message[1] > 0 && message[1] < 9 {
-                        state.write().unwrap()[(message[1] - 1) as usize] =
-                            message[2] as f32 / 127.0;
-                        println!("{}: {:?} (len = {})", stamp, message, message.len());
+                    if message[0] == 144 && message[1] >= 36 && message[1] <= 43 {
+                        state.write().unwrap().0 = (message[1] - 36) as u32;
                     }
+                    if message[0] == 176 && message[1] > 0 && message[1] < 9 {
+                        state.write().unwrap().1[(message[1] - 1) as usize] =
+                            message[2] as f32 / 127.0;
+                    }
+                    println!("{}: {:?} (len = {})", stamp, message, message.len());
                 }
             },
             (),

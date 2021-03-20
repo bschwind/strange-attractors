@@ -35,14 +35,16 @@ struct Particle {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[derive(Default, Debug, Copy, Clone, Pod, Zeroable)]
 struct Consts {
     algo: u32,
     a: f32,
     b: f32,
     c: f32,
     d: f32,
-    _align: [f32; 3],
+    e: f32,
+    f: f32,
+    g: f32,
 }
 
 #[repr(C)]
@@ -89,8 +91,8 @@ impl ParticleSystem {
     }
 
     fn update_consts(&mut self, frame_encoder: &mut FrameEncoder) {
-        let state = self.midi_state.read().unwrap().clone();
-        self.consts = Consts { a: state[0], b: state[1], c: state[2], d: state[3], ..self.consts };
+        let (algo, [a, b, c, d, e, f, g, _]) = self.midi_state.read().unwrap().clone();
+        self.consts = Consts { algo, a, b, c, d, e, f, g };
         frame_encoder.queue().write_buffer(&self.uniform_buffer, 0, struct_as_bytes(&self.consts))
     }
 
@@ -234,7 +236,7 @@ impl ParticleSystem {
         let mut particle_buffers = vec![];
         let mut bind_groups = vec![];
 
-        let consts = Consts { algo: 0, a: 0.0, b: 0.19, c: 0.0, d: 0.0, _align: [0f32; 3] };
+        let consts = Consts::default();
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system compute shader uniform buffer"),
             contents: struct_as_bytes(&consts),

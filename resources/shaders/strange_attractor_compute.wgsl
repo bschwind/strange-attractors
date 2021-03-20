@@ -1,7 +1,6 @@
 // This should match `NUM_PARTICLES` on the Rust side.
 const NUM_PARTICLES: u32 = 25000000;
 
-
 const B: f32 = 0.19;
 
 const DT: f32 = 0.033333333;
@@ -23,7 +22,9 @@ struct Consts {
     b : f32;
     c : f32;
     d : f32;
-    align : vec3<f32>;
+    e : f32;
+    f : f32;
+    g : f32;
 };
 
 [[group(0), binding(0)]] var<storage> particles_src : [[access(read)]] Particles;
@@ -43,15 +44,25 @@ fn main() {
     var x0: f32 = vPos.x;
     var y0: f32 = vPos.y;
     var z0: f32 = vPos.z;
+    var dx: f32;
+    var dy: f32;
+    var dz: f32;
 
-    var dx: f32 = (-consts.b * x0 + sin(y0)) * DT;
-    var dy: f32 = (-consts.b * y0 + sin(z0)) * DT;
-    var dz: f32 = (-consts.b * z0 + sin(x0)) * DT;
+    if (consts.algo == 0) {
+        dx = (-consts.b * x0 + sin(y0)) * DT;
+        dy = (-consts.b * y0 + sin(z0)) * DT;
+        dz = (-consts.b * z0 + sin(x0)) * DT;
+    } else {
+        if (consts.algo == 1) {
+            dx = ((z0 - consts.b) * x0 - consts.d*y0) * DT;
+            dy = (consts.d * x0 + (z0-consts.b) * y0) * DT;
+            dz = (consts.c + consts.a*z0 - ((z0*z0*z0) / 3.0) - (x0*x0) + consts.f * z0 * (x0*x0*x0)) * DT;
+        }
+    }
 
     var new_x: f32 = vPos.x + dx;
     var new_y: f32 = vPos.y + dy;
     var new_z: f32 = vPos.z + dz;
-
     // Write back
     particles_dst.particles[index].pos = vec4<f32>(new_x, new_y, new_z, 1.0);
 }
