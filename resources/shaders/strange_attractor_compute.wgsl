@@ -15,8 +15,19 @@ struct Particles {
     particles: [[stride(16)]] array<Particle>;
 };
 
+[[block]]
+struct Consts {
+    algo : u32;
+    a : f32;
+    b : f32;
+    c : f32;
+    d : f32;
+    align : vec3<f32>;
+};
+
 [[group(0), binding(0)]] var<storage> particles_src : [[access(read)]] Particles;
 [[group(0), binding(1)]] var<storage> particles_dst : [[access(read_write)]] Particles;
+[[group(1), binding(0)]] var<uniform> consts : Consts;
 
 [[builtin(global_invocation_id)]] var gl_GlobalInvocationID : vec3<u32>;
 

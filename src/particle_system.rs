@@ -1,7 +1,7 @@
 use crate::{graphics::FrameEncoder, GraphicsDevice};
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
-use std::mem;
+use std::{mem, slice};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
 const NUM_PARTICLES: usize = 1000000;
@@ -14,6 +14,8 @@ pub struct ParticleSystem {
     triangle_vertex_buffer: wgpu::Buffer,
     particle_bind_groups: Vec<wgpu::BindGroup>,
     vertex_shader_bind_group: wgpu::BindGroup,
+    uniform_bind_group: wgpu::BindGroup,
+    uniform_buffer: wgpu::Buffer,
     frame_counter: usize,
     work_group_count: u32,
 }
@@ -27,6 +29,17 @@ struct Particle {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
+struct Consts {
+    algo: u32,
+    a: f32,
+    b: f32,
+    c: f32,
+    d: f32,
+    _align: [f32; 3],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct TriangleVertex {
     /// XYZ position of the triangle vertex
     pos: [f32; 3],
@@ -35,10 +48,12 @@ struct TriangleVertex {
 impl ParticleSystem {
     pub fn new(graphics_device: &GraphicsDevice) -> Self {
         let compute_pipeline = Self::build_compute_pipeline(graphics_device);
-        let (particle_buffers, particle_bind_groups) = Self::build_particle_buffers(
-            graphics_device,
-            &compute_pipeline.get_bind_group_layout(0),
-        );
+        let (particle_buffers, particle_bind_groups, uniform_buffer, uniform_bind_group) =
+            Self::build_particle_buffers(
+                graphics_device,
+                &compute_pipeline.get_bind_group_layout(0),
+                &compute_pipeline.get_bind_group_layout(1),
+            );
         let (render_pipeline, vertex_bind_group_layout) =
             Self::build_render_pipeline(graphics_device);
         let vertex_shader_bind_group =
@@ -59,6 +74,8 @@ impl ParticleSystem {
             vertex_shader_bind_group,
             frame_counter,
             work_group_count,
+            uniform_buffer,
+            uniform_bind_group,
         }
     }
 
@@ -77,6 +94,7 @@ impl ParticleSystem {
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.set_bind_group(0, &self.particle_bind_groups[self.frame_counter % 2], &[]);
+            compute_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             compute_pass.dispatch(self.work_group_count, 1, 1);
         }
         encoder.pop_debug_group();
@@ -151,10 +169,25 @@ impl ParticleSystem {
                 label: None,
             });
 
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(mem::size_of::<Consts>() as _),
+                    },
+                    count: None,
+                }],
+                label: None,
+            });
+
         let compute_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("particle system compute"),
-                bind_group_layouts: &[&compute_bind_group_layout],
+                bind_group_layouts: &[&compute_bind_group_layout, &uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -169,7 +202,8 @@ impl ParticleSystem {
     fn build_particle_buffers(
         graphics_device: &GraphicsDevice,
         compute_bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> (Vec<wgpu::Buffer>, Vec<wgpu::BindGroup>) {
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> (Vec<wgpu::Buffer>, Vec<wgpu::BindGroup>, wgpu::Buffer, wgpu::BindGroup) {
         let device = graphics_device.device();
 
         let mut particles = vec![Particle { pos: [0.0, 0.0, 0.0, 0.0] }; NUM_PARTICLES];
@@ -183,6 +217,24 @@ impl ParticleSystem {
 
         let mut particle_buffers = vec![];
         let mut bind_groups = vec![];
+
+        let consts = Consts { algo: 0, a: 0.0, b: 0.19, c: 0.0, d: 0.0, _align: [0f32; 3] };
+        let p: *const Consts = &consts; // the same operator is used as with references
+        let s: &[u8] = unsafe { slice::from_raw_parts(p as *const u8, mem::size_of::<Consts>()) };
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Particle system compute shader uniform buffer"),
+            contents: s,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+            label: None,
+        });
 
         // Create "ping-pong" buffers so the compute shader can alternate
         // between reading from a source buffer and writing to a destination buffer.
@@ -217,7 +269,7 @@ impl ParticleSystem {
             bind_groups.push(bind_group);
         }
 
-        (particle_buffers, bind_groups)
+        (particle_buffers, bind_groups, uniform_buffer, uniform_bind_group)
     }
 
     fn build_render_pipeline(
