@@ -364,12 +364,17 @@ impl ParticleSystem {
         let device = graphics_device.device();
         let mut particles = vec![Particle { pos: [0.0, 0.0, 0.0, 0.0] }; NUM_PARTICLES];
 
+        let mut rng = rand::thread_rng();
+        let now = std::time::Instant::now();
         for particle in &mut particles {
-            particle.pos[0] = 2.0 * (rand::random::<f32>() - 0.5); // posx
-            particle.pos[1] = 2.0 * (rand::random::<f32>() - 0.5); // posy
-            particle.pos[2] = 2.0 * (rand::random::<f32>() - 0.5); // posz
+            particle.pos = rng.gen();
+            particle.pos[0] = (particle.pos[0] - 0.5) * 2.0;
+            particle.pos[1] = (particle.pos[0] - 0.5) * 2.0;
+            particle.pos[2] = (particle.pos[0] - 0.5) * 2.0;
             particle.pos[3] = 1.0;
         }
+
+        println!("generated particles in {}ms", now.elapsed().as_millis());
 
         let mut particle_buffers = vec![];
 
