@@ -1,6 +1,7 @@
 use crate::{graphics::FrameEncoder, midi, GraphicsDevice};
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
+use rand::Rng;
 use std::{convert::TryInto, mem, slice};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
