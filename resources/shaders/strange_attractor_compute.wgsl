@@ -1,5 +1,5 @@
 // This should match `NUM_PARTICLES` on the Rust side.
-const NUM_PARTICLES: u32 = 25000000;
+const NUM_PARTICLES: u32 = 2000000;
 
 const B: f32 = 0.19;
 
