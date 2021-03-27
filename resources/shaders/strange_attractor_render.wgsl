@@ -1,6 +1,19 @@
 [[block]]
+struct Consts {
+    algo : u32;
+    a : f32;
+    b : f32;
+    c : f32;
+    d : f32;
+    e : f32;
+    f : f32;
+    g : f32;
+};
+
+[[block]]
 struct Globals {
     proj: mat4x4<f32>;
+    consts: Consts;
 };
 
 // Uniforms
@@ -27,7 +40,8 @@ fn main() {
     out_position = vec4<f32>(in_position + in_particle_pos.xyz, 1.0);
     out_position = globals.proj * out_position;
 
-    pos = out_position;
+    var vel: f32 = in_particle_pos.w;
+    pos = vec4<f32>(out_position.xyz, vel);
 }
 
 [[location(0)]]
@@ -38,9 +52,9 @@ var<in> pos: vec4<f32>;
 
 [[stage(fragment)]]
 fn main() {
-    var r: f32 = 1.0;
-    var g: f32 = 1.0;
-    var b: f32 = 1.0;
+    var r: f32 = pos.w / (globals.consts.g * 0.5);
+    var g: f32 = 0.1;
+    var b: f32 = 1 - r;
 
     out_color = vec4<f32>(r, g, b, 1.0);
 }

@@ -38,6 +38,13 @@ pub struct ParticleSystem {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct VertexUniforms {
+    proj: Mat4,
+    consts: Consts,
+}
+
+#[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct Particle {
     /// XYZ position of the particle (w unused)
@@ -89,8 +96,9 @@ impl ParticleSystem {
         }
     }
 
-    fn update_consts(&mut self, frame_encoder: &mut FrameEncoder) {
+    fn update_compute_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
         let (algo, [a, b, c, d, e, f, g, _]) = self.midi_state.read().unwrap().clone();
+
         self.consts = Consts { algo, a, b, c, d, e, f, g };
         frame_encoder.queue().write_buffer(
             &self.buffers.compute_uniform,
@@ -99,8 +107,19 @@ impl ParticleSystem {
         )
     }
 
+    fn update_vertex_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
+        let uniforms = VertexUniforms { proj: Self::build_camera_matrix(), consts: self.consts };
+
+        frame_encoder.queue().write_buffer(
+            &self.buffers.vertex_uniform,
+            0,
+            struct_as_bytes(&uniforms),
+        )
+    }
+
     pub fn render(&mut self, frame_encoder: &mut FrameEncoder) {
-        self.update_consts(frame_encoder);
+        self.update_compute_uniforms(frame_encoder);
+        self.update_vertex_uniforms(frame_encoder);
         self.run_compute(frame_encoder);
         self.run_render(frame_encoder);
         self.frame_counter += 1;
@@ -234,12 +253,12 @@ impl ParticleSystem {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: wgpu::BufferSize::new(
-                            mem::size_of::<[[f32; 4]; 4]>() as u64
+                            mem::size_of::<VertexUniforms>() as u64
                         ),
                     },
                     count: None,
@@ -424,11 +443,13 @@ impl ParticleSystem {
 
     fn build_vertex_uniform_buffer(graphics_device: &GraphicsDevice) -> wgpu::Buffer {
         let device = graphics_device.device();
-        let camera_matrix = Self::build_camera_matrix();
+
+        let uniforms =
+            VertexUniforms { proj: Self::build_camera_matrix(), consts: Consts::default() };
 
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system vertex shader uniform buffer"),
-            contents: bytemuck::cast_slice(camera_matrix.as_ref()),
+            contents: struct_as_bytes(&uniforms),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         })
     }

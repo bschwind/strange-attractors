@@ -1,8 +1,5 @@
 // This should match `NUM_PARTICLES` on the Rust side.
 const NUM_PARTICLES: u32 = 2000000;
-
-const B: f32 = 0.19;
-
 const DT: f32 = 0.033333333;
 
 [[block]]
@@ -63,6 +60,8 @@ fn main() {
     var new_x: f32 = vPos.x + dx;
     var new_y: f32 = vPos.y + dy;
     var new_z: f32 = vPos.z + dz;
+
+    var vel: f32 = sqrt(dx*dx + dy*dy + dz*dz);
     // Write back
-    particles_dst.particles[index].pos = vec4<f32>(new_x, new_y, new_z, 1.0);
+    particles_dst.particles[index].pos = vec4<f32>(new_x, new_y, new_z, vel);
 }
