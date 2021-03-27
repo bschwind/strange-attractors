@@ -389,8 +389,8 @@ impl ParticleSystem {
         for particle in &mut particles {
             particle.pos = rng.gen();
             particle.pos[0] = (particle.pos[0] - 0.5) * 2.0;
-            particle.pos[1] = (particle.pos[0] - 0.5) * 2.0;
-            particle.pos[2] = (particle.pos[0] - 0.5) * 2.0;
+            particle.pos[1] = (particle.pos[1] - 0.5) * 2.0;
+            particle.pos[2] = (particle.pos[2] - 0.5) * 2.0;
             particle.pos[3] = 1.0;
         }
 
