@@ -1,6 +1,10 @@
-use crate::{graphics::FrameEncoder, GraphicsDevice};
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
+use simple_game::{
+    glam,
+    graphics::{FrameEncoder, GraphicsDevice},
+    wgpu,
+};
 use std::mem;
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
@@ -83,20 +87,28 @@ impl ParticleSystem {
     }
 
     fn run_render(&self, frame_encoder: &mut FrameEncoder) {
+        let (width, height) = frame_encoder.surface_dimensions();
+
+        let queue = frame_encoder.queue();
         let frame = &frame_encoder.frame;
         let encoder = &mut frame_encoder.encoder;
+
+        let proj = Self::build_camera_matrix(width, height);
+        // TODO - Store the uniform buffer on ParticleSystem so we can update it.
+        // queue.write_buffer(
+        //     &self.buffers.vertex_uniform,
+        //     0,
+        //     bytemuck::cast_slice(proj.as_ref()),
+        // );
 
         encoder.push_debug_group("Particle System Render");
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &frame.view,
                     resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
-                    },
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: true },
                 }],
                 depth_stencil_attachment: None,
             });
@@ -118,7 +130,7 @@ impl ParticleSystem {
         let device = graphics_device.device();
 
         let compute_shader = graphics_device
-            .load_shader(include_str!("../resources/shaders/strange_attractor_compute.wgsl"));
+            .load_wgsl_shader(include_str!("../resources/shaders/strange_attractor_compute.wgsl"));
 
         let compute_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -226,7 +238,7 @@ impl ParticleSystem {
         let device = graphics_device.device();
 
         let draw_shader = graphics_device
-            .load_shader(include_str!("../resources/shaders/strange_attractor_render.wgsl"));
+            .load_wgsl_shader(include_str!("../resources/shaders/strange_attractor_render.wgsl"));
 
         let vertex_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -236,9 +248,7 @@ impl ParticleSystem {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            mem::size_of::<[[f32; 4]; 4]>() as u64
-                        ),
+                        min_binding_size: wgpu::BufferSize::new(mem::size_of::<Mat4>() as u64),
                     },
                     count: None,
                 }],
@@ -262,12 +272,12 @@ impl ParticleSystem {
                     wgpu::VertexBufferLayout {
                         array_stride: mem::size_of::<Particle>() as u64,
                         step_mode: wgpu::InputStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![0 => Float4],
+                        attributes: &wgpu::vertex_attr_array![0 => Float32x4],
                     },
                     wgpu::VertexBufferLayout {
                         array_stride: mem::size_of::<TriangleVertex>() as u64,
                         step_mode: wgpu::InputStepMode::Vertex,
-                        attributes: &wgpu::vertex_attr_array![1 => Float3],
+                        attributes: &wgpu::vertex_attr_array![1 => Float32x3],
                     },
                 ],
             },
@@ -284,8 +294,8 @@ impl ParticleSystem {
         (render_pipeline, vertex_bind_group_layout)
     }
 
-    fn build_camera_matrix() -> Mat4 {
-        let aspect_ratio = 1.0;
+    fn build_camera_matrix(width: u32, height: u32) -> Mat4 {
+        let aspect_ratio = width as f32 / height as f32;
         let proj = Mat4::perspective_rh(std::f32::consts::PI / 2.0, aspect_ratio, 0.01, 1000.0);
 
         let view = Mat4::look_at_rh(
@@ -303,7 +313,8 @@ impl ParticleSystem {
     ) -> wgpu::BindGroup {
         let device = graphics_device.device();
 
-        let camera_matrix = Self::build_camera_matrix();
+        let (width, height) = graphics_device.surface_dimensions();
+        let camera_matrix = Self::build_camera_matrix(width, height);
 
         let vertex_shader_uniform_buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

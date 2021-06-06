@@ -6,8 +6,9 @@ edition = "2018"
 
 [dependencies]
 bytemuck = { version = "1", features = ["derive"] }
-glam = "0.13"
 pollster = "0.2"
-wgpu = "0.7"
-winit = "0.24"
+simple-game = { git = "https://github.com/bschwind/simple-game.git" }
 rand = "0.8"
+
+[build-dependencies]
+naga = { git = "https://github.com/gfx-rs/naga", tag = "gfx-25", features = ["wgsl-in"] }
