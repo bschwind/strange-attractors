@@ -604,6 +604,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ad8819b352632f676098176a51e11e324e8cee4c2518dd67e58c36b848438e6"
 dependencies = [
+ "bytemuck",
  "version_check",
 ]
 
@@ -1335,7 +1336,7 @@ checksum = "ec7505abeacaec74ae4778d9d9328fe5a5d04253220a85c4ee022239fc996d03"
 [[package]]
 name = "simple-game"
 version = "0.1.0"
-source = "git+https://github.com/bschwind/simple-game.git#8786843e9b094e7910caa4f027a2ec3bbb3eeb69"
+source = "git+https://github.com/bschwind/simple-game.git#f45f389da28b93d3b6e9533017c8e9af384c8193"
 dependencies = [
  "bytemuck",
  "fontdue",
