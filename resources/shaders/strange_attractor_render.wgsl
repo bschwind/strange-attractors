@@ -1,6 +1,18 @@
+struct Consts {
+    algo : u32;
+    a : f32;
+    b : f32;
+    c : f32;
+    d : f32;
+    e : f32;
+    f : f32;
+    g : f32;
+};
+
 [[block]]
 struct Globals {
     proj: mat4x4<f32>;
+    consts: Consts;
 };
 
 // Uniforms
@@ -26,16 +38,18 @@ fn main(input: VertexInput) -> VertexOutput {
 
     out.out_position = vec4<f32>(input.in_position + input.in_particle_pos.xyz, 1.0);
     out.out_position = globals.proj * out.out_position;
-    out.pos = out.out_position;
+
+    let vel: f32 = input.in_particle_pos.w;
+    out.pos = vec4<f32>(out.out_position.xyz, vel);
 
     return out;
 }
 
 [[stage(fragment)]]
 fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    let r: f32 = 1.0;
-    let g: f32 = 1.0;
-    let b: f32 = 1.0;
+    let r: f32 = in.pos.w / (globals.consts.g * 0.5);
+    let g: f32 = 0.1;
+    let b: f32 = 1.0 - r;
 
     return vec4<f32>(r, g, b, 1.0);
 }
