@@ -1,4 +1,3 @@
-let NUM_PARTICLES: u32 = 1000000u32;
 let B: f32 = 0.19;
 
 let DT: f32 = 0.033333333;
@@ -32,9 +31,8 @@ struct Consts {
 fn main([[builtin(global_invocation_id)]] global_invocation_id: vec3<u32>) {
     let index: u32 = global_invocation_id.x;
 
-    // TODO - Wait until wgpu-rs uses a more recent version of naga which supports arrayLength.
-    // let total = arrayLength(&particles_src.particles);
-    if (index >= NUM_PARTICLES) {
+    let total = arrayLength(&particles_src.particles);
+    if (index >= total) {
         return;
     }
 
