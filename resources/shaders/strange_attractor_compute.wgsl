@@ -6,12 +6,10 @@ struct Particle {
     pos : vec4<f32>;
 };
 
-[[block]]
 struct Particles {
-    particles: [[stride(16)]] array<Particle>;
+    particles: array<Particle>;
 };
 
-[[block]]
 struct Consts {
     algo : u32;
     a : f32;
@@ -23,11 +21,11 @@ struct Consts {
     g : f32;
 };
 
-[[group(0), binding(0)]] var<storage> particles_src : [[access(read)]] Particles;
-[[group(0), binding(1)]] var<storage> particles_dst : [[access(read_write)]] Particles;
+[[group(0), binding(0)]] var<storage> particles_src : Particles;
+[[group(0), binding(1)]] var<storage, read_write> particles_dst : Particles;
 [[group(1), binding(0)]] var<uniform> consts : Consts;
 
-[[stage(compute), workgroup_size(512)]]
+[[stage(compute), workgroup_size(256)]]
 fn main([[builtin(global_invocation_id)]] global_invocation_id: vec3<u32>) {
     let index: u32 = global_invocation_id.x;
 
@@ -44,12 +42,12 @@ fn main([[builtin(global_invocation_id)]] global_invocation_id: vec3<u32>) {
     var dy: f32;
     var dz: f32;
 
-    if (consts.algo == 0u32) {
+    if (consts.algo == 0u) {
         dx = (-consts.b * x0 + sin(y0)) * DT;
         dy = (-consts.b * y0 + sin(z0)) * DT;
         dz = (-consts.b * z0 + sin(x0)) * DT;
     } else {
-        if (consts.algo == 1u32) {
+        if (consts.algo == 1u) {
             dx = ((z0 - consts.b) * x0 - consts.d*y0) * DT;
             dy = (consts.d * x0 + (z0-consts.b) * y0) * DT;
             dz = (consts.c + consts.a*z0 - ((z0*z0*z0) / 3.0) - (x0*x0) + consts.f * z0 * (x0*x0*x0)) * DT;

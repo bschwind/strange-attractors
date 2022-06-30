@@ -9,8 +9,8 @@ use simple_game::{
 use std::{convert::TryInto, mem};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
-const NUM_PARTICLES: usize = 1000000;
-const PARTICLES_PER_GROUP: u32 = 512;
+const NUM_PARTICLES: usize = 1200000;
+const PARTICLES_PER_GROUP: u32 = 256;
 
 struct Buffers {
     particles: [wgpu::Buffer; 2],
@@ -145,7 +145,6 @@ impl ParticleSystem {
     }
 
     fn run_render(&self, frame_encoder: &mut FrameEncoder) {
-        let frame = &frame_encoder.frame;
         let encoder = &mut frame_encoder.encoder;
 
         encoder.push_debug_group("Particle System Render");
@@ -153,7 +152,7 @@ impl ParticleSystem {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &frame.view,
+                    view: &frame_encoder.backbuffer_view,
                     resolve_target: None,
                     ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: true },
                 }],
@@ -184,7 +183,7 @@ impl ParticleSystem {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::COMPUTE,
+                        visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -196,7 +195,7 @@ impl ParticleSystem {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::COMPUTE,
+                        visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
@@ -214,7 +213,7 @@ impl ParticleSystem {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -250,7 +249,7 @@ impl ParticleSystem {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -275,28 +274,29 @@ impl ParticleSystem {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &draw_shader,
-                entry_point: "main",
+                entry_point: "main_vs",
                 buffers: &[
                     wgpu::VertexBufferLayout {
                         array_stride: mem::size_of::<Particle>() as u64,
-                        step_mode: wgpu::InputStepMode::Instance,
+                        step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array![0 => Float32x4],
                     },
                     wgpu::VertexBufferLayout {
                         array_stride: mem::size_of::<TriangleVertex>() as u64,
-                        step_mode: wgpu::InputStepMode::Vertex,
+                        step_mode: wgpu::VertexStepMode::Vertex,
                         attributes: &wgpu::vertex_attr_array![1 => Float32x3],
                     },
                 ],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &draw_shader,
-                entry_point: "main",
-                targets: &[graphics_device.swap_chain_descriptor().format.into()],
+                entry_point: "main_fs",
+                targets: &[graphics_device.surface_config().format.into()],
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
+            multiview: None,
         });
 
         render_pipeline
@@ -318,7 +318,7 @@ impl ParticleSystem {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system compute shader uniform buffer"),
             contents: bytemuck::bytes_of(&consts),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
     }
 
@@ -334,7 +334,7 @@ impl ParticleSystem {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system vertex shader uniform buffer"),
             contents: bytemuck::bytes_of(&uniforms),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
     }
 
@@ -415,9 +415,9 @@ impl ParticleSystem {
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(&format!("Particle Buffer {}", i)),
                 contents: bytemuck::cast_slice(&particles),
-                usage: wgpu::BufferUsage::VERTEX
-                    | wgpu::BufferUsage::STORAGE
-                    | wgpu::BufferUsage::COPY_DST,
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_DST,
             });
 
             particle_buffers.push(buffer);
@@ -450,7 +450,7 @@ impl ParticleSystem {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Particle system triangle vertex buffer"),
             contents: bytemuck::bytes_of(&vertex_buffer_data),
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         })
     }
 }

@@ -9,7 +9,6 @@ struct Consts {
     g : f32;
 };
 
-[[block]]
 struct Globals {
     proj: mat4x4<f32>;
     consts: Consts;
@@ -33,7 +32,7 @@ struct VertexOutput {
 };
 
 [[stage(vertex)]]
-fn main(input: VertexInput) -> VertexOutput {
+fn main_vs(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
     out.out_position = vec4<f32>(input.in_position + input.in_particle_pos.xyz, 1.0);
@@ -46,7 +45,7 @@ fn main(input: VertexInput) -> VertexOutput {
 }
 
 [[stage(fragment)]]
-fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+fn main_fs(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let r: f32 = in.pos.w / (globals.consts.g * 0.5);
     let g: f32 = 0.1;
     let b: f32 = 1.0 - r;
