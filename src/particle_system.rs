@@ -139,7 +139,7 @@ impl ParticleSystem {
                 &[],
             );
             compute_pass.set_bind_group(1, &self.bind_groups.compute_uniform, &[]);
-            compute_pass.dispatch(self.work_group_count, 1, 1);
+            compute_pass.dispatch_workgroups(self.work_group_count, 1, 1);
         }
         encoder.pop_debug_group();
     }
@@ -151,11 +151,11 @@ impl ParticleSystem {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &frame_encoder.backbuffer_view,
                     resolve_target: None,
                     ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: true },
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
@@ -291,7 +291,7 @@ impl ParticleSystem {
             fragment: Some(wgpu::FragmentState {
                 module: &draw_shader,
                 entry_point: "main_fs",
-                targets: &[graphics_device.surface_config().format.into()],
+                targets: &[Some(graphics_device.surface_config().format.into())],
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,

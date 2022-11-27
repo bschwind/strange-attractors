@@ -3,30 +3,30 @@ let B: f32 = 0.19;
 let DT: f32 = 0.033333333;
 
 struct Particle {
-    pos : vec4<f32>;
+    pos : vec4<f32>,
 };
 
 struct Particles {
-    particles: array<Particle>;
+    particles: array<Particle>,
 };
 
 struct Consts {
-    algo : u32;
-    a : f32;
-    b : f32;
-    c : f32;
-    d : f32;
-    e : f32;
-    f : f32;
-    g : f32;
+    algo : u32,
+    a : f32,
+    b : f32,
+    c : f32,
+    d : f32,
+    e : f32,
+    f : f32,
+    g : f32,
 };
 
-[[group(0), binding(0)]] var<storage> particles_src : Particles;
-[[group(0), binding(1)]] var<storage, read_write> particles_dst : Particles;
-[[group(1), binding(0)]] var<uniform> consts : Consts;
+@group(0) @binding(0) var<storage> particles_src : Particles;
+@group(0) @binding(1) var<storage, read_write> particles_dst : Particles;
+@group(1) @binding(0) var<uniform> consts : Consts;
 
-[[stage(compute), workgroup_size(256)]]
-fn main([[builtin(global_invocation_id)]] global_invocation_id: vec3<u32>) {
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let index: u32 = global_invocation_id.x;
 
     let total = arrayLength(&particles_src.particles);
