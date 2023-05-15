@@ -1,6 +1,6 @@
-let B: f32 = 0.19;
+var<private> B: f32 = 0.19;
 
-let DT: f32 = 0.033333333;
+var<private> DT: f32 = 0.033333333;
 
 struct Particle {
     pos : vec4<f32>,

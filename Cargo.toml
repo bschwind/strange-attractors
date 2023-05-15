@@ -12,4 +12,4 @@ simple-game = { git = "https://github.com/bschwind/simple-game.git" }
 rand = "0.8"
 
 [build-dependencies]
-naga = { version = "0.10", features = ["validate", "wgsl-in"] }
+naga = { version = "0.12", features = ["validate", "wgsl-in"] }
