@@ -7,9 +7,12 @@ resolver = "2"
 
 [dependencies]
 bytemuck = { version = "1", features = ["derive"] }
+glam = "0.23"
 pollster = "0.2"
-simple-game = { git = "https://github.com/bschwind/simple-game.git" }
 rand = "0.8"
+simple-game = { git = "https://github.com/bschwind/simple-game.git" }
+wgpu = "0.16"
+winit = "0.28"
 
 [build-dependencies]
 naga = { version = "0.12", features = ["validate", "wgsl-in"] }

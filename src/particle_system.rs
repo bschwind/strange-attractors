@@ -1,11 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
 use rand::Rng;
-use simple_game::{
-    glam,
-    graphics::{FrameEncoder, GraphicsDevice},
-    wgpu,
-};
+use simple_game::graphics::{FrameEncoder, GraphicsDevice};
 use std::{convert::TryInto, mem};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
@@ -67,15 +63,22 @@ pub struct ParticleSystem {
     consts: Consts,
     frame_counter: usize,
     work_group_count: u32,
+    screen_width: u32,
+    screen_height: u32,
 }
 
 impl ParticleSystem {
-    pub fn new(graphics_device: &GraphicsDevice) -> Self {
-        let compute_pipeline = Self::build_compute_pipeline(graphics_device);
-        let render_pipeline = Self::build_render_pipeline(graphics_device);
-        let buffers = Self::build_buffers(graphics_device);
+    pub fn new(
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+        screen_width: u32,
+        screen_height: u32,
+    ) -> Self {
+        let compute_pipeline = Self::build_compute_pipeline(device);
+        let render_pipeline = Self::build_render_pipeline(device, target_format);
+        let buffers = Self::build_buffers(device);
         let bind_groups =
-            Self::build_bind_groups(graphics_device, &compute_pipeline, &render_pipeline, &buffers);
+            Self::build_bind_groups(device, &compute_pipeline, &render_pipeline, &buffers);
 
         let consts = Consts::default();
         let frame_counter = 0;
@@ -90,7 +93,14 @@ impl ParticleSystem {
             consts,
             frame_counter,
             work_group_count,
+            screen_width,
+            screen_height,
         }
+    }
+
+    pub fn resize(&mut self, screen_width: u32, screen_height: u32) {
+        self.screen_width = screen_width;
+        self.screen_height = screen_height;
     }
 
     fn update_compute_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
@@ -107,8 +117,10 @@ impl ParticleSystem {
 
     fn update_vertex_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
         let (width, height) = frame_encoder.surface_dimensions();
-        let uniforms =
-            VertexUniforms { proj: Self::build_camera_matrix(width, height), consts: self.consts };
+        let uniforms = VertexUniforms {
+            proj: Self::build_camera_matrix(self.screen_width, self.screen_height),
+            consts: self.consts,
+        };
 
         frame_encoder.queue().write_buffer(
             &self.buffers.vertex_uniform,
@@ -172,11 +184,11 @@ impl ParticleSystem {
         encoder.pop_debug_group();
     }
 
-    fn build_compute_pipeline(graphics_device: &GraphicsDevice) -> ComputePipeline {
-        let device = graphics_device.device();
-
-        let compute_shader = graphics_device
-            .load_wgsl_shader(include_str!("../resources/shaders/strange_attractor_compute.wgsl"));
+    fn build_compute_pipeline(device: &wgpu::Device) -> ComputePipeline {
+        let compute_shader = GraphicsDevice::load_wgsl_shader(
+            device,
+            include_str!("../resources/shaders/strange_attractor_compute.wgsl"),
+        );
 
         let compute_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -239,11 +251,14 @@ impl ParticleSystem {
         })
     }
 
-    fn build_render_pipeline(graphics_device: &GraphicsDevice) -> RenderPipeline {
-        let device = graphics_device.device();
-
-        let draw_shader = graphics_device
-            .load_wgsl_shader(include_str!("../resources/shaders/strange_attractor_render.wgsl"));
+    fn build_render_pipeline(
+        device: &wgpu::Device,
+        target_format: wgpu::TextureFormat,
+    ) -> RenderPipeline {
+        let draw_shader = GraphicsDevice::load_wgsl_shader(
+            device,
+            include_str!("../resources/shaders/strange_attractor_render.wgsl"),
+        );
 
         let vertex_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -291,7 +306,11 @@ impl ParticleSystem {
             fragment: Some(wgpu::FragmentState {
                 module: &draw_shader,
                 entry_point: "main_fs",
-                targets: &[Some(graphics_device.surface_config().format.into())],
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: target_format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -302,17 +321,16 @@ impl ParticleSystem {
         render_pipeline
     }
 
-    fn build_buffers(graphics_device: &GraphicsDevice) -> Buffers {
+    fn build_buffers(device: &wgpu::Device) -> Buffers {
         Buffers {
-            particles: Self::build_particle_buffers(graphics_device),
-            triangle_vertex: Self::build_triangle_vertex_buffer(graphics_device),
-            compute_uniform: Self::build_compute_uniform_buffer(graphics_device),
-            vertex_uniform: Self::build_vertex_uniform_buffer(graphics_device),
+            particles: Self::build_particle_buffers(device),
+            triangle_vertex: Self::build_triangle_vertex_buffer(device),
+            compute_uniform: Self::build_compute_uniform_buffer(device),
+            vertex_uniform: Self::build_vertex_uniform_buffer(device),
         }
     }
 
-    fn build_compute_uniform_buffer(graphics_device: &GraphicsDevice) -> wgpu::Buffer {
-        let device = graphics_device.device();
+    fn build_compute_uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         let consts = Consts::default();
 
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -322,29 +340,21 @@ impl ParticleSystem {
         })
     }
 
-    fn build_vertex_uniform_buffer(graphics_device: &GraphicsDevice) -> wgpu::Buffer {
-        let (width, height) = graphics_device.surface_dimensions();
-        let device = graphics_device.device();
-
-        let uniforms = VertexUniforms {
-            proj: Self::build_camera_matrix(width, height),
-            consts: Consts::default(),
-        };
-
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    fn build_vertex_uniform_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Particle system vertex shader uniform buffer"),
-            contents: bytemuck::bytes_of(&uniforms),
+            size: std::mem::size_of::<VertexUniforms>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         })
     }
 
     fn build_bind_groups(
-        graphics_device: &GraphicsDevice,
+        device: &wgpu::Device,
         compute_pipeline: &ComputePipeline,
         render_pipeline: &RenderPipeline,
         buffers: &Buffers,
     ) -> BindGroups {
-        let device = graphics_device.device();
         let mut particle_bind_groups = Vec::with_capacity(2);
 
         for i in 0..2 {
@@ -391,8 +401,7 @@ impl ParticleSystem {
         }
     }
 
-    fn build_particle_buffers(graphics_device: &GraphicsDevice) -> [wgpu::Buffer; 2] {
-        let device = graphics_device.device();
+    fn build_particle_buffers(device: &wgpu::Device) -> [wgpu::Buffer; 2] {
         let mut particles = vec![Particle { pos: [0.0, 0.0, 0.0, 0.0] }; NUM_PARTICLES];
 
         let mut rng = rand::thread_rng();
@@ -439,8 +448,7 @@ impl ParticleSystem {
         proj * view
     }
 
-    fn build_triangle_vertex_buffer(graphics_device: &GraphicsDevice) -> wgpu::Buffer {
-        let device = graphics_device.device();
+    fn build_triangle_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         let vertex_buffer_data = [
             TriangleVertex { pos: [-0.005, -0.005, 0.0] },
             TriangleVertex { pos: [0.005, -0.005, 0.0] },
