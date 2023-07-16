@@ -1601,7 +1601,7 @@ checksum = "238abfbb77c1915110ad968465608b68e869e0772622c9656714e73e5a1a522f"
 [[package]]
 name = "simple-game"
 version = "0.1.0"
-source = "git+https://github.com/bschwind/simple-game.git#451e5262602935ca372e08921844a6a138738d07"
+source = "git+https://github.com/bschwind/simple-game.git#2a68705b07a3dffdc6dd37825630ff09d2ad3ebb"
 dependencies = [
  "bevy_app",
  "bevy_core",

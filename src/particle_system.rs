@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
 use rand::Rng;
-use simple_game::graphics::{FrameEncoder, GraphicsDevice};
+use simple_game::graphics::GraphicsDevice;
 use std::{convert::TryInto, mem};
 use wgpu::{util::DeviceExt, ComputePipeline, RenderPipeline};
 
@@ -103,43 +103,37 @@ impl ParticleSystem {
         self.screen_height = screen_height;
     }
 
-    fn update_compute_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
+    fn update_compute_uniforms(&mut self, queue: &wgpu::Queue) {
         // TODO - Update state from a MIDI controller.
         // let (algo, [a, b, c, d, e, f, g, _]) = self.midi_state.read().unwrap().clone();
         self.consts = Consts { a: 0.0, b: 0.1, ..Consts::default() };
 
-        frame_encoder.queue().write_buffer(
-            &self.buffers.compute_uniform,
-            0,
-            bytemuck::bytes_of(&self.consts),
-        )
+        queue.write_buffer(&self.buffers.compute_uniform, 0, bytemuck::bytes_of(&self.consts))
     }
 
-    fn update_vertex_uniforms(&mut self, frame_encoder: &mut FrameEncoder) {
-        let (width, height) = frame_encoder.surface_dimensions();
+    fn update_vertex_uniforms(&mut self, queue: &wgpu::Queue) {
         let uniforms = VertexUniforms {
             proj: Self::build_camera_matrix(self.screen_width, self.screen_height),
             consts: self.consts,
         };
 
-        frame_encoder.queue().write_buffer(
-            &self.buffers.vertex_uniform,
-            0,
-            bytemuck::bytes_of(&uniforms),
-        )
+        queue.write_buffer(&self.buffers.vertex_uniform, 0, bytemuck::bytes_of(&uniforms))
     }
 
-    pub fn render(&mut self, frame_encoder: &mut FrameEncoder) {
-        self.update_compute_uniforms(frame_encoder);
-        self.update_vertex_uniforms(frame_encoder);
-        self.run_compute(frame_encoder);
-        self.run_render(frame_encoder);
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        render_target: &wgpu::TextureView,
+        queue: &wgpu::Queue,
+    ) {
+        self.update_compute_uniforms(queue);
+        self.update_vertex_uniforms(queue);
+        self.run_compute(encoder);
+        self.run_render(encoder, render_target);
         self.frame_counter += 1;
     }
 
-    fn run_compute(&self, frame_encoder: &mut FrameEncoder) {
-        let encoder = &mut frame_encoder.encoder;
-
+    fn run_compute(&self, encoder: &mut wgpu::CommandEncoder) {
         encoder.push_debug_group("Particle System Compute");
         {
             let mut compute_pass =
@@ -156,15 +150,13 @@ impl ParticleSystem {
         encoder.pop_debug_group();
     }
 
-    fn run_render(&self, frame_encoder: &mut FrameEncoder) {
-        let encoder = &mut frame_encoder.encoder;
-
+    fn run_render(&self, encoder: &mut wgpu::CommandEncoder, render_target: &wgpu::TextureView) {
         encoder.push_debug_group("Particle System Render");
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &frame_encoder.backbuffer_view,
+                    view: render_target,
                     resolve_target: None,
                     ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: true },
                 })],
@@ -284,7 +276,7 @@ impl ParticleSystem {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
@@ -316,9 +308,7 @@ impl ParticleSystem {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
-        });
-
-        render_pipeline
+        })
     }
 
     fn build_buffers(device: &wgpu::Device) -> Buffers {

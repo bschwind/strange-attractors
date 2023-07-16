@@ -2,12 +2,16 @@ use crate::particle_system::ParticleSystem;
 use simple_game::{
     graphics::{
         text::{AxisAlign, StyledText, TextAlignment, TextSystem},
-        FrameEncoder, GraphicsDevice,
+        GraphicsDevice,
     },
     util::FPSCounter,
     GameApp, WindowDimensions,
 };
-use winit::window::Window;
+use winit::{
+    event::{KeyboardInput, VirtualKeyCode, WindowEvent},
+    event_loop::ControlFlow,
+    window::Window,
+};
 
 mod particle_system;
 
@@ -53,14 +57,25 @@ impl GameApp for StrangeAttractorSim {
         WindowDimensions::Windowed(1280, 720)
     }
 
-    fn desired_fps() -> usize {
-        60
+    fn handle_window_event(&mut self, event: &WindowEvent, control_flow: &mut ControlFlow) {
+        if let WindowEvent::KeyboardInput {
+            input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), .. },
+            ..
+        } = event
+        {
+            *control_flow = ControlFlow::Exit;
+        }
     }
 
     fn tick(&mut self, _dt: f32) {}
 
-    fn render(&mut self, frame_encoder: &mut FrameEncoder, _window: &Window) {
-        self.particle_system.render(frame_encoder);
+    fn render(&mut self, graphics_device: &mut GraphicsDevice, _window: &Window) {
+        let mut frame_encoder = graphics_device.begin_frame();
+        self.particle_system.render(
+            &mut frame_encoder.encoder,
+            &frame_encoder.backbuffer_view,
+            graphics_device.queue(),
+        );
 
         self.text_system.render_horizontal(
             TextAlignment {
@@ -72,8 +87,11 @@ impl GameApp for StrangeAttractorSim {
             &[StyledText::default_styling(&format!("FPS: {}", self.fps_counter.fps()))],
             &mut frame_encoder.encoder,
             &frame_encoder.backbuffer_view,
-            frame_encoder.queue,
+            graphics_device.queue(),
         );
+
+        graphics_device.queue().submit(Some(frame_encoder.encoder.finish()));
+        frame_encoder.frame.present();
 
         self.fps_counter.tick();
     }
