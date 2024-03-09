@@ -136,8 +136,10 @@ impl ParticleSystem {
     fn run_compute(&self, encoder: &mut wgpu::CommandEncoder) {
         encoder.push_debug_group("Particle System Compute");
         {
-            let mut compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: None,
+                timestamp_writes: None,
+            });
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.set_bind_group(
                 0,
@@ -158,9 +160,11 @@ impl ParticleSystem {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: render_target,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: true },
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
             // render particles from the dst buffer

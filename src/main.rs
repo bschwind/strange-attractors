@@ -7,11 +7,7 @@ use simple_game::{
     util::FPSCounter,
     GameApp, WindowDimensions,
 };
-use winit::{
-    event::{KeyboardInput, VirtualKeyCode, WindowEvent},
-    event_loop::ControlFlow,
-    window::Window,
-};
+use winit::window::Window;
 
 mod particle_system;
 
@@ -57,16 +53,6 @@ impl GameApp for StrangeAttractorSim {
         WindowDimensions::Windowed(1280, 720)
     }
 
-    fn handle_window_event(&mut self, event: &WindowEvent, control_flow: &mut ControlFlow) {
-        if let WindowEvent::KeyboardInput {
-            input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), .. },
-            ..
-        } = event
-        {
-            *control_flow = ControlFlow::Exit;
-        }
-    }
-
     fn tick(&mut self, _dt: f32) {}
 
     fn render(&mut self, graphics_device: &mut GraphicsDevice, _window: &Window) {
@@ -98,5 +84,5 @@ impl GameApp for StrangeAttractorSim {
 }
 
 fn main() {
-    simple_game::run_game_app::<StrangeAttractorSim>();
+    simple_game::run_game_app::<StrangeAttractorSim>().unwrap();
 }
