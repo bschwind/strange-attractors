@@ -1,3 +1,4 @@
+use glam::Vec3;
 use bytemuck::{Pod, Zeroable};
 use glam::{vec3, Mat4};
 use rand::Rng;
@@ -65,6 +66,8 @@ pub struct ParticleSystem {
     work_group_count: u32,
     screen_width: u32,
     screen_height: u32,
+
+    cam_pos: Vec3,
 }
 
 impl ParticleSystem {
@@ -95,6 +98,7 @@ impl ParticleSystem {
             work_group_count,
             screen_width,
             screen_height,
+            cam_pos: vec3(10.0, 20.0, 30.0),
         }
     }
 
@@ -106,6 +110,9 @@ impl ParticleSystem {
     fn update_compute_uniforms(&mut self, queue: &wgpu::Queue) {
         // TODO - Update state from a MIDI controller.
         // let (algo, [a, b, c, d, e, f, g, _]) = self.midi_state.read().unwrap().clone();
+
+        // Thomas constant
+        // self.consts = Consts { a: 0.0, b: 0.208186, ..Consts::default() };
         self.consts = Consts { a: 0.0, b: 0.1, ..Consts::default() };
 
         queue.write_buffer(&self.buffers.compute_uniform, 0, bytemuck::bytes_of(&self.consts))
@@ -113,7 +120,7 @@ impl ParticleSystem {
 
     fn update_vertex_uniforms(&mut self, queue: &wgpu::Queue) {
         let uniforms = VertexUniforms {
-            proj: Self::build_camera_matrix(self.screen_width, self.screen_height),
+            proj: self.build_camera_matrix(self.screen_width, self.screen_height),
             consts: self.consts,
         };
 
@@ -429,13 +436,30 @@ impl ParticleSystem {
         particle_buffers.try_into().unwrap()
     }
 
-    fn build_camera_matrix(width: u32, height: u32) -> Mat4 {
+    fn build_camera_matrix(&mut self, width: u32, height: u32) -> Mat4 {
         let aspect_ratio = width as f32 / height as f32;
         let proj = Mat4::perspective_rh(std::f32::consts::PI / 2.0, aspect_ratio, 0.01, 1000.0);
 
+        const DT: f32 = 0.033_333_33;
+
+        let x0 = self.cam_pos.x;
+        let y0 = self.cam_pos.y;
+        let z0 = self.cam_pos.z;
+
+        let dx = (-self.consts.b * x0 + y0.sin()) * DT;
+        let dy = (-self.consts.b * y0 + z0.sin()) * DT;
+        let dz = (-self.consts.b * z0 + x0.sin()) * DT;
+
+        let delta_pos = vec3(dx, dy, dz);
+
+        let old_pos = self.cam_pos;
+        self.cam_pos += delta_pos;
+
+        let forward = (self.cam_pos - old_pos);//.normalize();
+
         let view = Mat4::look_at_rh(
-            vec3(1.0, 1.0, -1.0) * 4.0, // Eye position
-            vec3(0.0, 0.0, 0.0),        // Look-at target
+            self.cam_pos, // Eye position
+            self.cam_pos + forward,        // Look-at target
             vec3(0.0, 1.0, 0.0),        // Up vector of the camera
         );
 
