@@ -39,7 +39,7 @@ fn main_vs(input: VertexInput) -> VertexOutput {
     out.out_position = globals.proj * out.out_position;
 
     let vel: f32 = input.in_particle_pos.w;
-    out.pos = vec4<f32>(out.out_position.xyz, vel);
+    out.pos = vec4<f32>(out.out_position.xyz, 1.0);
 
     return out;
 }

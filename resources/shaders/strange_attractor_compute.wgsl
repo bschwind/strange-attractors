@@ -1,6 +1,6 @@
 var<private> B: f32 = 0.19;
 
-var<private> DT: f32 = 0.033333333;
+var<private> DT: f32 = 0.0033333333;
 
 struct Particle {
     pos : vec4<f32>,
@@ -58,8 +58,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let new_y: f32 = vPos.y + dy;
     let new_z: f32 = vPos.z + dz;
 
-    var vel: f32 = sqrt(dx*dx + dy*dy + dz*dz);
+    // var vel: f32 = sqrt(dx*dx + dy*dy + dz*dz);
 
     // Write back
-    particles_dst.particles[index].pos = vec4<f32>(new_x, new_y, new_z, vel);
+    particles_dst.particles[index].pos = vec4<f32>(new_x, new_y, new_z, 1.0);
 }

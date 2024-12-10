@@ -68,6 +68,7 @@ pub struct ParticleSystem {
     screen_height: u32,
 
     cam_pos: Vec3,
+    last_up: Vec3,
 }
 
 impl ParticleSystem {
@@ -99,6 +100,7 @@ impl ParticleSystem {
             screen_width,
             screen_height,
             cam_pos: vec3(10.0, 20.0, 30.0),
+            last_up: vec3(0.0, 1.0, 0.0),
         }
     }
 
@@ -311,7 +313,18 @@ impl ParticleSystem {
                 entry_point: "main_fs",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: target_format,
-                    blend: None,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -438,13 +451,58 @@ impl ParticleSystem {
 
     fn build_camera_matrix(&mut self, width: u32, height: u32) -> Mat4 {
         let aspect_ratio = width as f32 / height as f32;
-        let proj = Mat4::perspective_rh(std::f32::consts::PI / 2.0, aspect_ratio, 0.01, 1000.0);
+        let proj = Mat4::perspective_rh(std::f32::consts::PI / 2.0, aspect_ratio, 0.1, 1000.0);
 
-        const DT: f32 = 0.033_333_33;
+        // const DT: f32 = 0.033_333_33;
 
-        let x0 = self.cam_pos.x;
-        let y0 = self.cam_pos.y;
-        let z0 = self.cam_pos.z;
+        // let x0 = self.cam_pos.x;
+        // let y0 = self.cam_pos.y;
+        // let z0 = self.cam_pos.z;
+
+        // let dx = (-self.consts.b * x0 + y0.sin()) * DT;
+        // let dy = (-self.consts.b * y0 + z0.sin()) * DT;
+        // let dz = (-self.consts.b * z0 + x0.sin()) * DT;
+
+        // let delta_pos = vec3(dx, dy, dz);
+
+        let old_pos = self.cam_pos;
+        // self.cam_pos += delta_pos;
+
+        let next_pos = self.next_pos(self.cam_pos);
+        let next_next_pos = self.next_pos(next_pos);
+
+        self.cam_pos = next_pos;
+
+        let forward = (self.cam_pos - old_pos).normalize();
+
+        let a = old_pos - next_pos;
+        let b = next_next_pos - next_pos;
+        let target = a + b;
+        let up = match (target - next_pos).try_normalize() {
+            Some(up) => up,
+            None => self.last_up,
+        };
+
+        // let new_up = self.last_up.lerp(up, 0.0001);
+        let new_up = up;
+        self.last_up = new_up;
+
+        let view = Mat4::look_at_rh(
+            self.cam_pos, // Eye position
+            self.cam_pos + forward,        // Look-at target
+            vec3(0.0, 1.0, 0.0),        // Up vector of the camera
+            // new_up,
+        );
+
+        proj * view
+    }
+
+    fn next_pos(&self, pos: Vec3) -> Vec3 {
+        const DT: f32 = 0.0033_333_33;
+
+        let x0 = pos.x;
+        let y0 = pos.y;
+        let z0 = pos.z;
 
         let dx = (-self.consts.b * x0 + y0.sin()) * DT;
         let dy = (-self.consts.b * y0 + z0.sin()) * DT;
@@ -452,18 +510,7 @@ impl ParticleSystem {
 
         let delta_pos = vec3(dx, dy, dz);
 
-        let old_pos = self.cam_pos;
-        self.cam_pos += delta_pos;
-
-        let forward = (self.cam_pos - old_pos);//.normalize();
-
-        let view = Mat4::look_at_rh(
-            self.cam_pos, // Eye position
-            self.cam_pos + forward,        // Look-at target
-            vec3(0.0, 1.0, 0.0),        // Up vector of the camera
-        );
-
-        proj * view
+        pos + delta_pos
     }
 
     fn build_triangle_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
